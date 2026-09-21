@@ -17,7 +17,7 @@ docs/jotform-setup.md    Jotform フォームの作り方と推奨項目
 ## 公開前に設定すること（config.js）
 
 1. **事業者情報** `business.name / phone / email / hours`
-2. **拠点座標** `center` … 初期値は大阪府南河内郡太子町役場。兵庫県揖保郡太子町の場合はコメントの座標に変更
+2. **拠点座標** `center` … 大阪府南河内郡太子町役場（自宅や作業拠点に変える場合はここを編集）
 3. **Google Maps API キー** `googleMapsApiKey`
    - [Google Cloud Console](https://console.cloud.google.com/) で「Maps JavaScript API」を有効化しキーを作成
    - キーの「ウェブサイトの制限」に公開ドメインを設定
