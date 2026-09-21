@@ -61,20 +61,32 @@
   Object.values(calcEls).forEach((el) => el && el.addEventListener("input", estimate));
   estimate();
 
-  // ---------- 市町村セレクト ----------
-  const cities = {
-    "大阪府": ["太子町","河南町","千早赤阪村","富田林市","羽曳野市","藤井寺市","柏原市","松原市","大阪狭山市","河内長野市","堺市","八尾市","東大阪市","大阪市","高石市","泉大津市","和泉市","忠岡町","岸和田市","大東市","門真市","守口市","四條畷市"],
-    "奈良県": ["葛城市","香芝市","大和高田市","御所市","橿原市","王寺町","上牧町","河合町","広陵町","三郷町","平群町","斑鳩町","安堵町","川西町","三宅町","田原本町","高取町","明日香村","桜井市","大和郡山市","生駒市","天理市","奈良市","五條市","大淀町","下市町","吉野町"],
-    "和歌山県": ["橋本市","かつらぎ町"],
-  };
+  // ---------- 対応エリア一覧・市町村セレクト（assets/areas.js） ----------
+  const AREAS = window.SERVICE_AREAS || [];
+  const byPref = [];
+  AREAS.forEach((a) => {
+    let g = byPref.find((x) => x.pref === a.pref);
+    if (!g) { g = { pref: a.pref, items: [] }; byPref.push(g); }
+    g.items.push(a);
+  });
+  const listEl = document.getElementById("area-lists");
+  if (listEl) {
+    byPref.forEach((g) => {
+      const box = document.createElement("div");
+      const h = document.createElement("h3"); h.className = "sub-title"; h.textContent = g.pref;
+      const para = document.createElement("p");
+      para.innerHTML = g.items.map((a) => a.full ? a.name : `${a.name}<small class="partial">（一部）</small>`).join("・");
+      box.appendChild(h); box.appendChild(para); listEl.appendChild(box);
+    });
+  }
   const citySel = document.getElementById("city-select");
   if (citySel) {
-    Object.entries(cities).forEach(([pref, list]) => {
+    byPref.forEach((g) => {
       const og = document.createElement("optgroup");
-      og.label = pref;
-      list.forEach((c) => {
+      og.label = g.pref;
+      g.items.forEach((a) => {
         const o = document.createElement("option");
-        o.value = pref + c; o.textContent = c; og.appendChild(o);
+        o.value = g.pref + " " + a.name; o.textContent = a.name + (a.full ? "" : "（一部）"); og.appendChild(o);
       });
       citySel.appendChild(og);
     });

@@ -188,21 +188,8 @@
       <div id="map" class="map" aria-label="対応エリア地図"></div>
       <p id="map-note" class="calc-note"></p>
 
-      <div class="area-lists">
-        <div>
-          <h3 class="sub-title">大阪府</h3>
-          <p>太子町・河南町・千早赤阪村・富田林市・羽曳野市・藤井寺市・柏原市・松原市・大阪狭山市・河内長野市・堺市・八尾市・東大阪市・大阪市・高石市・泉大津市・和泉市・忠岡町・岸和田市・大東市・門真市・守口市・四條畷市</p>
-        </div>
-        <div>
-          <h3 class="sub-title">奈良県</h3>
-          <p>葛城市・香芝市・大和高田市・御所市・橿原市・王寺町・上牧町・河合町・広陵町・三郷町・平群町・斑鳩町・安堵町・川西町・三宅町・田原本町・高取町・明日香村・桜井市・大和郡山市・生駒市・天理市・奈良市・五條市・大淀町・下市町・吉野町</p>
-        </div>
-        <div>
-          <h3 class="sub-title">和歌山県</h3>
-          <p>橋本市・かつらぎ町（北部）</p>
-        </div>
-      </div>
-      <p class="calc-note">※ 市町村名は目安です。同じ市内でも 30km を超える地域は出張費をご相談させていただく場合があります。</p>
+      <div class="area-lists" id="area-lists"></div>
+      <p class="calc-note">※ 国土地理院・国土数値情報の行政区域データをもとに、太子町役場から 30km 以内に区域が含まれる市町村を掲載しています。「一部」は市町村の一部が 30km を超える地域です。圏外の地域も出張費のご相談で対応できる場合があります。</p>
     </div>
   </section>
 
@@ -351,6 +338,7 @@
 </footer>
 
 <script src="config.js"></script>
+<script src="assets/areas.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

@@ -13,6 +13,8 @@ assets/app.js            地図・概算計算・フォーム送信
 docs/pricing-research.md 作業単価の相場調査メモと出典
 docs/jotform-setup.md    Jotform フォームの作り方と推奨項目
 docs/google-maps-api-key.md  Google Maps API キーの取得手順
+docs/service-area.md     30km圏内の市町村一覧と算出方法
+assets/areas.js          対応エリアの市町村データ（一覧・フォームに反映）
 ```
 
 ## 公開前に設定すること（config.js）
