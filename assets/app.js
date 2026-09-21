@@ -86,12 +86,37 @@
   // ---------- 地図 ----------
   const mapEl = document.getElementById("map");
   const mapNote = document.getElementById("map-note");
-  function initEmbedMap() {
+  // キー未設定時のフォールバック：OpenStreetMap（Leaflet）でピンと円を描画
+  function initFallbackMap() {
     const { lat, lng } = C.center;
-    mapEl.innerHTML = `<iframe loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"
-      src="https://maps.google.com/maps?q=${lat},${lng}&z=9&hl=ja&output=embed"></iframe>`;
-    if (mapNote) mapNote.textContent = "※ 30km 圏の円を表示するには config.js に Google Maps API キーを設定してください。";
+    const radius = (C.radiusKm || 30) * 1000;
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = "assets/vendor/leaflet/leaflet.css";
+    document.head.appendChild(css);
+    const js = document.createElement("script");
+    js.src = "assets/vendor/leaflet/leaflet.js";
+    js.onload = function () {
+      const L = window.L;
+      const map = L.map(mapEl, { scrollWheelZoom: false }).setView([lat, lng], 9);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+      const circle = L.circle([lat, lng], { radius, color: "#2e6b43", weight: 2, fillColor: "#3f8f5a", fillOpacity: .15 }).addTo(map);
+      L.marker([lat, lng]).addTo(map)
+        .bindPopup(`<strong>${C.centerLabel || ""}</strong><br>ここを中心に ${C.radiusKm || 30}km 圏内が対応エリアです`).openPopup();
+      map.fitBounds(circle.getBounds(), { padding: [10, 10] });
+      if (mapNote) mapNote.textContent = "";
+    };
+    js.onerror = function () {
+      // Leaflet も読めない場合は Google の埋め込み地図（ピンのみ）
+      mapEl.innerHTML = `<iframe loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"
+        src="https://maps.google.com/maps?q=${lat},${lng}&z=9&hl=ja&output=embed"></iframe>`;
+    };
+    document.head.appendChild(js);
+    if (mapNote) mapNote.textContent = "";
   }
+  const initEmbedMap = initFallbackMap;
   window.initServiceMap = function () {
     const center = C.center;
     const map = new google.maps.Map(mapEl, {
