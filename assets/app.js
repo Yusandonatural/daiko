@@ -125,8 +125,36 @@
 
   // ---------- フォーム ----------
   const form = document.getElementById("request-form");
+  const jot = document.getElementById("jotform-embed");
   const status = document.getElementById("form-status");
   const submitBtn = document.getElementById("submit-btn");
+
+  // Jotform 埋め込み（config.js の jotformFormId が設定されている場合）
+  if (jot && form && C.jotformFormId) {
+    const id = String(C.jotformFormId).replace(/\D/g, "");
+    const iframe = document.createElement("iframe");
+    iframe.id = "JotFormIFrame-" + id;
+    iframe.title = "お申し込みフォーム";
+    iframe.src = `https://form.jotform.com/${id}`;
+    iframe.setAttribute("allowfullscreen", "true");
+    iframe.setAttribute("allow", "geolocation; microphone; camera; fullscreen");
+    iframe.setAttribute("scrolling", "no");
+    iframe.setAttribute("frameborder", "0");
+    jot.appendChild(iframe);
+    jot.hidden = false;
+    form.hidden = true;
+    // 高さ自動調整用のハンドラ
+    const h = document.createElement("script");
+    h.src = "https://cdn.jotfor.ms/s/umd/latest/for-form-embed-handler.js";
+    h.onload = function () {
+      if (window.jotformEmbedHandler) {
+        window.jotformEmbedHandler("iframe[id='JotFormIFrame-" + id + "']", "https://form.jotform.com/");
+      }
+    };
+    document.body.appendChild(h);
+  }
+
+  // 簡易フォーム（Jotform 未設定時のフォールバック：メーラー起動）
   const labels = {
     name: "お名前", phone: "電話番号", email: "メール", contact_method: "連絡方法",
     city: "市町村", address: "住所・目印", land_type: "土地の種類", area: "面積", area_unit: "単位",
@@ -142,8 +170,8 @@
     }
     return lines.join("\n");
   }
-  if (form) {
-    form.addEventListener("submit", async (e) => {
+  if (form && !form.hidden) {
+    form.addEventListener("submit", (e) => {
       e.preventDefault();
       status.className = "form-status";
       if (!form.checkValidity()) {
@@ -156,31 +184,11 @@
       if (fd.get("_gotcha")) return; // bot
       const body = buildBody(fd);
       const subject = `【草刈り依頼】${fd.get("name")} 様（${fd.get("city")}）`;
-
-      if (!C.formEndpoint) {
-        const to = (C.business || {}).email || "";
-        window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        status.textContent = "メールソフトが開きます。送信して完了です。開かない場合はお電話ください。";
-        status.classList.add("ok");
-        return;
-      }
-
-      submitBtn.disabled = true;
-      status.textContent = "送信中…";
-      try {
-        fd.append("_subject", subject);
-        fd.append("summary", body);
-        const res = await fetch(C.formEndpoint, { method: "POST", body: fd, headers: { Accept: "application/json" } });
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        form.reset();
-        status.textContent = "送信しました。2〜3日以内にご連絡いたします。";
-        status.classList.add("ok");
-      } catch (err) {
-        status.textContent = "送信に失敗しました。お手数ですがお電話またはメールでご連絡ください。";
-        status.classList.add("ng");
-      } finally {
-        submitBtn.disabled = false;
-      }
+      const to = (C.business || {}).email || "";
+      window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      status.textContent = "メールソフトが開きます。送信して完了です。開かない場合はお電話ください。";
+      status.classList.add("ok");
+      submitBtn.disabled = false;
     });
   }
 })();

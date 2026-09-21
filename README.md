@@ -11,6 +11,7 @@ config.js                事業者情報・座標・APIキー・料金（ここ�
 assets/style.css         スタイル
 assets/app.js            地図・概算計算・フォーム送信
 docs/pricing-research.md 作業単価の相場調査メモと出典
+docs/jotform-setup.md    Jotform フォームの作り方と推奨項目
 ```
 
 ## 公開前に設定すること（config.js）
@@ -21,9 +22,10 @@ docs/pricing-research.md 作業単価の相場調査メモと出典
    - [Google Cloud Console](https://console.cloud.google.com/) で「Maps JavaScript API」を有効化しキーを作成
    - キーの「ウェブサイトの制限」に公開ドメインを設定
    - 未設定でもキー不要の埋め込み地図（ピンのみ）で表示されます。30km の円を描くにはキーが必要です
-4. **フォーム送信先** `formEndpoint`
-   - [Formspree](https://formspree.io/) で無料フォームを作り、`https://formspree.io/f/xxxxxxxx` を設定
-   - 未設定の場合は入力内容を本文にしたメーラーが起動します（動作確認用）
+4. **Jotform のフォーム ID** `jotformFormId`
+   - Jotform でフォームを作成し、「公開」→「埋め込み」に表示される URL の数字部分（例: `251234567890123`）を設定
+   - 推奨の質問項目と作り方は `docs/jotform-setup.md` を参照
+   - 未設定の間は簡易フォーム（入力内容を本文にしたメーラー起動）が表示されます
 5. **料金** `pricing` … 相場の根拠は `docs/pricing-research.md`
 
 ## ローカルで確認

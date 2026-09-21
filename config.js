@@ -22,10 +22,12 @@ window.SITE_CONFIG = {
   // 未設定（空文字）の場合は、キー不要の埋め込み地図にフォールバックします（円は描画されません）
   googleMapsApiKey: "",
 
-  // フォーム送信先
-  // 例: Formspree → "https://formspree.io/f/xxxxxxxx"
-  // 未設定の場合は、入力内容をメール本文にしたメーラーが起動します
-  formEndpoint: "",
+  // Jotform のフォームID（例: "251234567890123"）
+  // Jotform で作成したフォームの「公開」→「埋め込み」に表示される URL
+  //   https://form.jotform.com/251234567890123  の数字部分
+  // 設定すると Jotform のフォームが埋め込まれます。
+  // 未設定の間は簡易フォーム（入力内容をメール本文にしたメーラー起動）を表示します
+  jotformFormId: "",
 
   // 標準料金（税込・円）。相場調査は docs/pricing-research.md を参照
   pricing: {
