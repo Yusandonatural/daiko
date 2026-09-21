@@ -6,8 +6,8 @@ window.SITE_CONFIG = {
   business: {
     name: "太子草刈り代行",
     tagline: "農地・空き地・畦畔の草刈りを、地元の農家がお引き受けします",
-    phone: "000-0000-0000",           // ← 電話番号
-    email: "info@example.com",        // ← 受付メール（フォーム送信先の予備にも使用）
+    phone: "080-1409-4139",
+    email: "isozaki@yusando.com",
     line: "",                          // ← LINE公式アカウントURL（任意）
     hours: "8:00〜18:00（日曜定休）",
   },
@@ -26,7 +26,7 @@ window.SITE_CONFIG = {
   //   https://form.jotform.com/251234567890123  の数字部分
   // 設定すると Jotform のフォームが埋め込まれます。
   // 未設定の間は簡易フォーム（入力内容をメール本文にしたメーラー起動）を表示します
-  jotformFormId: "",
+  jotformFormId: "262632433489059",
 
   // 標準料金（税込・円）。相場調査は docs/pricing-research.md を参照
   pricing: {
