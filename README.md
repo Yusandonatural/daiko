@@ -39,5 +39,6 @@ python3 -m http.server 8000
 
 ## GitHub Pages で公開
 
-リポジトリの Settings → Pages → Source を「Deploy from a branch」、Branch を `main` / `(root)` にすると
-`https://<user>.github.io/daiko/` で公開されます。
+`main` に push すると `.github/workflows/pages.yml` が自動でデプロイし、
+https://yusandonatural.github.io/daiko/ で公開されます（Settings → Pages の Source は「GitHub Actions」）。
+独自ドメインを使う場合は Settings → Pages → Custom domain に設定し、DNS に CNAME を追加してください。
