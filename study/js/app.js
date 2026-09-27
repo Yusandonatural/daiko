@@ -143,7 +143,7 @@
   async function keepAwake(on) {
     try {
       if (on && 'wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
-      if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+      if (!on && wakeLock && !timerRunning()) { await wakeLock.release(); wakeLock = null; }
     } catch (e) { wakeLock = null; }
   }
 
@@ -191,8 +191,10 @@
             </button>`;
           }).join('')}
         </div>
+        <button class="btn big ghost go-timer">⏱ タイマー${timerRunning() ? ` <b class="tchip">${fmt(timerLeft())}</b>` : ''}</button>
         <button class="link parent-link">⚙ おうちの人の せってい</button>
       </section>`, 'home');
+    on('.go-timer', 'click', () => { SFX.tap(); showTimer(showHome); });
     on('.who-btn', 'click', (e) => { SFX.tap(); S.current = e.currentTarget.dataset.id; save(); showDash(); });
     on('.parent-link', 'click', () => pinGate(showParent));
   }
@@ -223,7 +225,10 @@
       <section class="screen dash">
         <header class="topbar">
           <button class="me switch" aria-label="きりかえ"><span class="av">${p.avatar}</span><span><b>${esc(p.name)}</b><small>${GRADES[p.grade]}</small></span></button>
-          <button class="icon-btn parent-link" aria-label="おうちの人の せってい">⚙</button>
+          <span class="top-actions">
+            <button class="timer-btn go-timer" aria-label="タイマー">⏱<b class="tchip">${timerRunning() || S.timer && S.timer.left > 0 && S.timer.left < S.timer.total ? fmt(timerLeft()) : 'タイマー'}</b></button>
+            <button class="icon-btn parent-link" aria-label="おうちの人の せってい">⚙</button>
+          </span>
         </header>
 
         <div class="dash-grid">
@@ -265,6 +270,8 @@
 
     on('.go-study', 'click', () => { SFX.tap(); showStudy(); });
     on('.go-game', 'click', () => { SFX.tap(); showGame(); });
+    on('.go-timer', 'click', () => { SFX.tap(); showTimer(showDash); });
+    if (timerRunning()) every(1000, () => { const el = $('.go-timer .tchip'); if (el) el.textContent = fmt(timerLeft()); });
     on('.switch', 'click', () => { if (S.profiles.length > 1) { S.current = null; save(); showHome(); } });
     on('.parent-link', 'click', () => pinGate(showParent));
     if (running) every(1000, () => { const el = $('.gl'); if (el) el.textContent = fmt(gameRemaining(today(p))); });
@@ -662,6 +669,137 @@
       draw();
     });
     if (d.gameRunAt) keepAwake(true);
+    draw();
+  }
+
+  // =========================================================
+  //  タイマー（はみがき・しゅくだい など なんでも）
+  // =========================================================
+  const TIMER_PRESETS = [
+    { icon: '🪥', label: 'はみがき', min: 3 },
+    { icon: '🧹', label: 'おかたづけ', min: 10 },
+    { icon: '📖', label: 'しゅくだい', min: 20 },
+    { icon: '🛁', label: 'おふろ', min: 15 },
+    { icon: '🍽️', label: 'ごはん', min: 30 },
+    { icon: '📺', label: 'テレビ', min: 30 },
+  ];
+  const TIMER_MINUTES = [1, 3, 5, 10, 15, 20, 30, 45, 60];
+  function timerState() {
+    if (!S.timer) S.timer = { total: 180, left: 180, runAt: null, label: 'タイマー', icon: '⏱', alarmed: false };
+    return S.timer;
+  }
+  function timerRunning() { return !!(S.timer && S.timer.runAt); }
+  function timerLeft() {
+    const t = S.timer; if (!t) return 0;
+    return t.runAt ? t.left - (Date.now() - t.runAt) / 1000 : t.left;
+  }
+  function timerSet(sec, label, icon) {
+    const t = timerState();
+    t.total = t.left = Math.max(10, Math.min(sec, 3 * 3600));
+    t.runAt = null; t.alarmed = false;
+    if (label) { t.label = label; t.icon = icon || '⏱'; }
+    save();
+  }
+
+  // タイマーが おわったら どの がめんでも しらせる
+  let alarmTimer = null;
+  function timerAlarm() {
+    const t = timerState();
+    t.left = 0; t.runAt = null; t.alarmed = true; save();
+    keepAwake(false);
+    if (document.querySelector('.timer-ov')) return;
+    let n = 0;
+    const ring = () => { SFX.alarm(); if (navigator.vibrate) navigator.vibrate([300, 150, 300]); if (++n >= 15) stop(); };
+    ring();
+    speak([{ text: `じかんです！ ${t.label === 'タイマー' ? '' : t.label + 'の じかんは'} おしまい！`, lang: 'ja' }]);
+    alarmTimer = setInterval(ring, 2000);
+    const ov = document.createElement('div');
+    ov.className = 'overlay timer-ov';
+    ov.innerHTML = `<div class="ov-card alarm-card">
+      <div class="ov-emoji ringing">⏰</div>
+      <h2>${t.icon} ${esc(t.label)}<br>じかんです！</h2>
+      <button class="btn big primary stop">とめる</button>
+    </div>`;
+    function stop() { clearInterval(alarmTimer); alarmTimer = null; }
+    ov.querySelector('.stop').addEventListener('click', () => {
+      stop(); ov.remove();
+      t.left = t.total; t.alarmed = false; save();
+      const scr = app.dataset.screen;
+      if (scr === 'timer') showTimer(timerBack);
+      else if (scr === 'dash') showDash();
+      else if (scr === 'home') showHome();
+    });
+    document.body.appendChild(ov);
+  }
+  setInterval(() => { if (timerRunning() && timerLeft() <= 0) timerAlarm(); }, 500);
+
+  let timerBack = null;
+  function showTimer(back) {
+    timerBack = back || (S.current ? showDash : showHome);
+    const t = timerState();
+    if (timerRunning()) keepAwake(true);
+    render(`
+      <section class="screen timerscr">
+        <header class="topbar"><button class="icon-btn back" aria-label="もどる">←</button><h2>⏱ タイマー</h2><span></span></header>
+        <div class="timer-grid">
+          <div class="timer-face">
+            <div class="tring"></div>
+            <div class="tbtns">
+              <button class="btn big primary tgo"></button>
+              <button class="btn ghost treset">↺ もどす</button>
+            </div>
+          </div>
+          <div class="timer-ctrl">
+            <div class="card">
+              <h3>なにの タイマー？</h3>
+              <div class="tpresets">${TIMER_PRESETS.map((x, i) => `<button class="tpreset ${t.label === x.label ? 'on' : ''}" data-i="${i}"><span>${x.icon}</span><b>${x.label}</b><small>${x.min}ぷん</small></button>`).join('')}</div>
+            </div>
+            <div class="card">
+              <h3>じかんを えらぶ</h3>
+              <div class="tmins">${TIMER_MINUTES.map((m) => `<button class="tmin" data-m="${m}">${m}<small>ぷん</small></button>`).join('')}</div>
+              <div class="tadj">
+                <button class="btn tadd" data-s="-60">−1ぷん</button>
+                <button class="btn tadd" data-s="-10">−10びょう</button>
+                <button class="btn tadd" data-s="10">+10びょう</button>
+                <button class="btn tadd" data-s="60">+1ぷん</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>`, 'timer');
+
+    let warned = false;
+    function draw() {
+      const left = Math.max(0, timerLeft());
+      const run = timerRunning();
+      $('.tring').innerHTML = ring(t.total ? left / t.total : 0,
+        `<span class="tlabel2">${t.icon} ${esc(t.label)}</span><b class="gtime">${fmt(left)}</b><small>${run ? 'すすんでいるよ' : left < t.total ? 'とまっているよ' : 'スタートを おしてね'}</small>`,
+        'game-ring timer-ring' + (run && left <= 10 ? ' last' : ''));
+      const go = $('.tgo');
+      go.textContent = run ? '⏸ ストップ' : left < t.total && left > 0 ? '▶ つづける' : '▶ スタート';
+      go.classList.toggle('danger', run);
+      $$('.tadd, .tmin, .tpreset').forEach((b) => { b.disabled = run; });
+      $$('.tmin').forEach((b) => b.classList.toggle('on', !run && +b.dataset.m * 60 === t.total));
+      if (run && left <= 60 && left > 55 && !warned && t.total > 120) { warned = true; SFX.warn(); speak([{ text: 'のこり 1ぷん だよ', lang: 'ja' }]); }
+    }
+    on('.tgo', 'click', () => {
+      SFX.tap();
+      if (timerRunning()) { t.left = Math.max(0, timerLeft()); t.runAt = null; keepAwake(false); }
+      else { if (t.left <= 0) t.left = t.total; t.runAt = Date.now(); t.alarmed = false; keepAwake(true); }
+      save(); draw();
+    });
+    on('.treset', 'click', () => { SFX.tap(); t.runAt = null; t.left = t.total; warned = false; save(); keepAwake(false); draw(); });
+    on('.tmin', 'click', (e) => { SFX.tap(); timerSet(+e.currentTarget.dataset.m * 60); draw(); });
+    on('.tadd', 'click', (e) => { SFX.tap(); timerSet(t.total + +e.currentTarget.dataset.s); draw(); });
+    on('.tpreset', 'click', (e) => {
+      SFX.tap();
+      const x = TIMER_PRESETS[+e.currentTarget.dataset.i];
+      timerSet(x.min * 60, x.label, x.icon);
+      $$('.tpreset').forEach((b) => b.classList.toggle('on', b === e.currentTarget));
+      draw();
+    });
+    on('.back', 'click', () => timerBack());
+    every(250, draw);
     draw();
   }
 

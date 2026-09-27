@@ -88,7 +88,7 @@ small { font-size: .75em; color: var(--sub); }
 .today { display: flex; gap: 18px; align-items: center; }
 .today-txt { flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .today-txt p { margin: 0; }
-.ldots { display: flex; flex-wrap: wrap; gap: 6px; justify-content: inherit; }
+.ldots { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; }
 .ldot { min-width: 34px; height: 34px; border-radius: 50%; display: inline-grid; place-items: center; background: #f6efe4; color: var(--sub); font-weight: 800; font-size: .9rem; box-shadow: inset 0 0 0 2px var(--line); }
 .ldot.on { background: #fff1d6; box-shadow: inset 0 0 0 2px var(--gold); font-size: 1.1rem; }
 .cal-cell .lx { position: absolute; top: 3px; right: 5px; font-size: .62rem; background: var(--pri); color: #fff; border-radius: 99px; padding: 0 5px; line-height: 1.5; }
@@ -454,4 +454,55 @@ hr { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }
   .choices.c4 { grid-template-columns: 1fr 1fr; }
   .choice { min-height: 170px; }
   .key { padding: 12px 0; }
+}
+
+/* =========================================================
+   タイマー
+   ========================================================= */
+.top-actions { display: flex; align-items: center; gap: 10px; }
+.timer-btn { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px 0 10px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow); font-size: 1.3rem; }
+.timer-btn .tchip, .go-timer .tchip { font-size: .85rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.home .go-timer { max-width: 360px; align-self: center; }
+.timerscr .topbar { width: 100%; }
+.timer-grid { display: flex; flex-direction: column; gap: 16px; }
+.timer-face { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.tbtns { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; max-width: 420px; }
+.timer-ring .ring-fg { stroke: #7e57c2; }
+.timer-ring.last .ring-fg { stroke: var(--ng); }
+.timer-ring.last .gtime { color: var(--ng); animation: pulse 1s infinite; }
+.tlabel2 { font-weight: 800; font-size: 1rem; }
+.tpresets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tpreset { background: #fcf6ec; border-radius: 18px; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 4px 0 #eadfcd; }
+.tpreset span { font-size: 2rem; line-height: 1.2; }
+.tpreset b { font-size: .95rem; }
+.tpreset.on { background: #efe6fb; box-shadow: 0 4px 0 #b39ddb, inset 0 0 0 3px #7e57c2; }
+.tmins { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.tmin { background: #fcf6ec; border-radius: 14px; padding: 8px 0; font-size: 1.3rem; font-weight: 800; box-shadow: 0 3px 0 #eadfcd; display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.tmin.on { background: #7e57c2; color: #fff; box-shadow: 0 3px 0 #5e35b1; }
+.tmin.on small { color: #e8dcff; }
+.tadj { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.tadj .btn { padding: .6em .2em; font-size: .9rem; }
+.tpreset:disabled, .tmin:disabled, .tadd:disabled { opacity: .4; }
+.alarm-card h2 { font-size: 1.6rem; }
+.ringing { animation: shake .5s infinite; font-size: 5rem; }
+@media (max-width: 420px) {
+  .tmin { font-size: 1.1rem; }
+  .tadj { grid-template-columns: 1fr 1fr; }
+  .today .ldots { justify-content: center; }
+}
+@media (min-width: 740px) {
+  .timer-btn { height: 56px; font-size: 1.6rem; padding: 0 18px 0 14px; }
+  .timer-btn .tchip { font-size: 1rem; }
+  .timerscr { max-width: 900px; }
+  .tpreset { padding: 14px 4px; }
+  .tpreset span { font-size: 2.6rem; }
+  .tpreset b { font-size: 1.1rem; }
+  .tmin { font-size: 1.6rem; padding: 12px 0; }
+  .tadj .btn { font-size: 1.1rem; }
+  .tlabel2 { font-size: 1.3rem; }
+  .alarm-card { max-width: 460px; }
+}
+@media (min-width: 1000px) and (orientation: landscape) {
+  .timerscr { max-width: 1240px; }
+  .timer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: center; }
 }
