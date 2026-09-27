@@ -506,3 +506,13 @@ hr { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }
   .timerscr { max-width: 1240px; }
   .timer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: center; }
 }
+
+/* 端末タイマー連携 */
+.dev-note { font-size: .85rem; background: #efe6fb; color: #4a2f86; border-radius: 14px; padding: 8px 14px; margin: 0; text-align: center; }
+.devtimer .field { display: flex; flex-direction: column; gap: 4px; font-weight: 800; margin: 8px 0; }
+.devtimer select, .devtimer input { font: inherit; padding: .6em .8em; border-radius: 12px; border: 2px solid var(--line); background: #fffdf8; color: var(--ink); }
+.steps { background: #fcf6ec; border-radius: 14px; padding: 10px 14px; margin: 8px 0; }
+.steps summary { font-weight: 800; cursor: pointer; }
+.steps ol { padding-left: 1.3em; margin: 8px 0; }
+.steps li { margin-bottom: 6px; }
+@media (min-width: 740px) { .dev-note { font-size: 1rem; } }

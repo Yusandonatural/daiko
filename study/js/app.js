@@ -625,6 +625,7 @@
         <div class="gring"></div>
         <p class="gmsg"></p>
         <button class="btn big primary toggle"></button>
+        ${deviceNote()}
         <p class="note">ゲームを するときに「スタート」、やめるときは「ストップ」。<br>とめている あいだは へらないよ。</p>
       </section>`, 'game');
 
@@ -650,7 +651,7 @@
     on('.toggle', 'click', () => {
       SFX.tap();
       if (d.gameRunAt) stop();
-      else if (gameRemaining(d) > 0) { d.gameRunAt = Date.now(); save(); keepAwake(true); }
+      else if (gameRemaining(d) > 0) { d.gameRunAt = Date.now(); save(); keepAwake(true); launchDeviceTimer(gameRemaining(d), 'ゲームタイム おしまい'); }
       draw();
     });
     on('.back', 'click', () => { keepAwake(false); showDash(); });
@@ -671,6 +672,32 @@
     if (d.gameRunAt) keepAwake(true);
     draw();
   }
+
+  // =========================================================
+  //  端末の タイマー 連携（ゲーム中でも 鳴らすため）
+  //  ios: ショートカットアプリ経由で 時計のタイマーを開始 / android: 時計アプリに SET_TIMER
+  // =========================================================
+  const DEFAULT_SHORTCUT = 'ゲームタイマー';
+  const deviceMode = () => (S.settings && S.settings.deviceTimer) || 'off';
+  const deviceName = () => (deviceMode() === 'android' ? 'スマホ・タブレット' : 'iPad');
+  function launchDeviceTimer(sec, label) {
+    const mode = deviceMode();
+    if (mode === 'off' || sec <= 0) return false;
+    let url;
+    if (mode === 'ios') {
+      const name = S.settings.shortcutName || DEFAULT_SHORTCUT;
+      url = `shortcuts://run-shortcut?name=${encodeURIComponent(name)}&input=text&text=${Math.max(1, Math.ceil(sec / 60))}`;
+    } else {
+      url = `intent:#Intent;action=android.intent.action.SET_TIMER;i.android.intent.extra.alarm.LENGTH=${Math.max(1, Math.round(sec))};` +
+        `S.android.intent.extra.alarm.MESSAGE=${encodeURIComponent(label || 'まいにち30ぷん')};B.android.intent.extra.alarm.SKIP_UI=true;end`;
+    }
+    const a = document.createElement('a');
+    a.href = url; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    return true;
+  }
+  const deviceNote = () => (deviceMode() === 'off' ? '' :
+    `<p class="dev-note">📱 スタートすると ${deviceName()}の タイマーも うごくよ。<br>とめるときは ${deviceName()}の タイマーも とめてね。</p>`);
 
   // =========================================================
   //  タイマー（はみがき・しゅくだい など なんでも）
@@ -748,6 +775,7 @@
               <button class="btn big primary tgo"></button>
               <button class="btn ghost treset">↺ もどす</button>
             </div>
+            ${deviceNote()}
           </div>
           <div class="timer-ctrl">
             <div class="card">
@@ -785,7 +813,7 @@
     on('.tgo', 'click', () => {
       SFX.tap();
       if (timerRunning()) { t.left = Math.max(0, timerLeft()); t.runAt = null; keepAwake(false); }
-      else { if (t.left <= 0) t.left = t.total; t.runAt = Date.now(); t.alarmed = false; keepAwake(true); }
+      else { if (t.left <= 0) t.left = t.total; t.runAt = Date.now(); t.alarmed = false; keepAwake(true); save(); launchDeviceTimer(t.left, t.label); }
       save(); draw();
     });
     on('.treset', 'click', () => { SFX.tap(); t.runAt = null; t.left = t.total; warned = false; save(); keepAwake(false); draw(); });
@@ -864,6 +892,40 @@
           <p class="hint">暗証番号を設定すると、お子さまが勝手に時間を変えたりクリア扱いにしたりできなくなります。</p>
         </div>
 
+        <div class="card devtimer">
+          <h3>端末のタイマーと連携</h3>
+          <p class="hint">ゲームアプリに切り替えると、このアプリのアラームは鳴りません。連携すると、ゲームタイムやタイマーを「スタート」したときに<b>端末の時計アプリのタイマー</b>も同じ時間でセットされ、ゲーム中でも時間になると鳴ります。</p>
+          <label class="field">連携のしかた
+            <select class="dev-mode">
+              <option value="off" ${deviceMode() === 'off' ? 'selected' : ''}>使わない（このアプリのタイマーだけ）</option>
+              <option value="ios" ${deviceMode() === 'ios' ? 'selected' : ''}>iPad・iPhone（ショートカット）</option>
+              <option value="android" ${deviceMode() === 'android' ? 'selected' : ''}>Android（時計アプリ）</option>
+            </select>
+          </label>
+          <div class="dev-ios ${deviceMode() === 'ios' ? '' : 'hidden'}">
+            <label class="field">ショートカットの名前
+              <input class="sc-name" value="${esc(S.settings.shortcutName || DEFAULT_SHORTCUT)}" maxlength="40">
+            </label>
+            <details class="steps" ${S.settings.shortcutName ? '' : 'open'}>
+              <summary>ショートカットの作り方（最初に1回だけ・約2分）</summary>
+              <ol>
+                <li>iPadの「<b>ショートカット</b>」アプリを開き、右上の「＋」で新規作成します。</li>
+                <li>名前を「<b class="sc-name-show">${esc(S.settings.shortcutName || DEFAULT_SHORTCUT)}</b>」にします（上の名前と同じにしてください）。</li>
+                <li>「アクションを追加」で「<b>数字</b>」と検索し、「<b>入力から数値を取得</b>」を追加します（入力は「ショートカットの入力」）。</li>
+                <li>続けて「<b>タイマー</b>」と検索し、時計の「<b>タイマーを開始</b>」を追加します。</li>
+                <li>「タイマーを開始」の時間の部分をタップして、変数「<b>数値</b>」を選び、単位を「<b>分</b>」にします。</li>
+                <li>右上の「ⓘ」→「共有シートに表示」をオンにして、受け取る入力を「テキスト」にしておくと確実です。</li>
+                <li>下の「1分でテスト」を押して、時計アプリのタイマーが1分で動けば完了です。</li>
+              </ol>
+              <p class="hint">初回はショートカットの実行を許可するか聞かれることがあります。「許可」を選んでください。スタート後はショートカットアプリが開くので、そのままゲームを開いて遊べます。</p>
+            </details>
+          </div>
+          <div class="dev-android ${deviceMode() === 'android' ? '' : 'hidden'}">
+            <p class="hint">Chrome でこのアプリを開いて使ってください。「1分でテスト」で時計アプリのタイマーが動けば準備完了です（機種によっては対応していない場合があります）。</p>
+          </div>
+          <button class="btn sm dev-test ${deviceMode() === 'off' ? 'hidden' : ''}">1分でテスト</button>
+        </div>
+
         <div class="card">
           <h3>データ</h3>
           <p class="hint">記録はこの端末（ブラウザ）の中だけに保存されます。機種変更の前にバックアップしてください。</p>
@@ -890,6 +952,17 @@
     on('.edit', 'click', (e) => showProfileForm(e.currentTarget.dataset.id));
     on('.report', 'click', (e) => showReport(e.currentTarget.dataset.id));
     on('.voice', 'change', (e) => { S.settings.voice = e.target.checked; save(); });
+    on('.dev-mode', 'change', (e) => {
+      S.settings.deviceTimer = e.target.value; save();
+      $('.dev-ios').classList.toggle('hidden', e.target.value !== 'ios');
+      $('.dev-android').classList.toggle('hidden', e.target.value !== 'android');
+      $('.dev-test').classList.toggle('hidden', e.target.value === 'off');
+    });
+    on('.sc-name', 'input', (e) => {
+      S.settings.shortcutName = e.target.value.trim() || DEFAULT_SHORTCUT; save();
+      $$('.sc-name-show').forEach((el) => { el.textContent = S.settings.shortcutName; });
+    });
+    on('.dev-test', 'click', () => launchDeviceTimer(60, 'テスト'));
     on('.sound', 'change', (e) => { S.settings.sound = e.target.checked; save(); });
     on('.set-pin', 'click', () => {
       const v = $('.pin-in').value.trim();
