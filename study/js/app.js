@@ -42,15 +42,29 @@
     return {
       id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       name, grade, avatar,
-      studyMin: 30, gameMin: 30, enRatio: 0.7,
+      studyMin: 30, gameMin: 30, enRatio: 0.7, maxLessons: 0,
       lvEn: 1, lvMath: 1, recentEn: [], recentMath: [],
       stars: 0, days: {}, kinds: {},
     };
   }
   function today(p) {
     const k = dkey();
-    if (!p.days[k]) p.days[k] = { sec: 0, q: 0, c: 0, cleared: false, gameLeft: 0, gameRunAt: null, stamp: null };
+    if (!p.days[k]) p.days[k] = { sec: 0, q: 0, c: 0, lessons: 0, lessonSec: 0, cleared: false, gameLeft: 0, gameTotal: 0, gameRunAt: null, stamp: null };
     return p.days[k];
+  }
+  // レッスン：studyMin ぷん やるごとに 1かい。1かいごとに gameMin ぷん もらえる
+  const lessonsOf = (d) => (d ? (d.lessons != null ? d.lessons : d.cleared ? 1 : 0) : 0);
+  const lessonSecOf = (d) => (d.lessonSec != null ? d.lessonSec : d.cleared ? 0 : d.sec);
+  const canLesson = (p, d) => !p.maxLessons || lessonsOf(d) < p.maxLessons;
+  function grantLesson(p, d) {
+    d.lessons = lessonsOf(d) + 1;
+    d.lessonSec = 0;
+    d.cleared = true;
+    if (!d.stamp) d.stamp = STAMPS[Math.floor(Math.random() * STAMPS.length)];
+    const add = p.gameMin * 60;
+    if (d.gameRunAt) { d.gameLeft = Math.max(0, gameRemaining(d)); d.gameRunAt = Date.now(); }
+    d.gameLeft = Math.max(0, d.gameLeft) + add;
+    d.gameTotal = (d.gameTotal || 0) + add;
   }
   function streak(p) {
     let d = new Date();
@@ -173,7 +187,7 @@
             return `<button class="who-btn" data-id="${p.id}">
               <span class="av">${p.avatar}</span><span class="nm">${esc(p.name)}</span>
               <span class="gr">${GRADES[p.grade]}</span>
-              <span class="st">${d.cleared ? '✅ きょうは クリア' : '🔥 ' + streak(p) + 'にち れんぞく'}</span>
+              <span class="st">${d.cleared ? `✅ きょう レッスン ${lessonsOf(d)}かい` : '🔥 ' + streak(p) + 'にち れんぞく'}</span>
             </button>`;
           }).join('')}
         </div>
@@ -191,15 +205,19 @@
     const p = cur(); if (!p) return showHome();
     const d = today(p); save();
     const target = p.studyMin * 60;
-    const pct = d.sec / target;
+    const ls = lessonsOf(d), lsec = lessonSecOf(d), can = canLesson(p, d);
+    const pct = can ? lsec / target : 1;
     const st = streak(p);
     const rk = rankOf(p.stars), nx = nextRank(p.stars);
     const gLeft = gameRemaining(d);
     const running = !!d.gameRunAt && gLeft > 0;
 
-    const studyBtn = d.cleared
+    const studyBtn = !can
       ? `<button class="btn big ghost go-study">📚 もっと べんきょうする</button>`
-      : `<button class="btn big primary go-study">${d.sec > 0 ? '▶ つづきから' : '▶ べんきょう スタート'}</button>`;
+      : `<button class="btn big primary go-study">${lsec > 0 ? '▶ つづきから' : ls ? `▶ ${ls + 1}かいめの レッスン` : '▶ レッスン スタート'}</button>`;
+    const lessonDots = p.maxLessons
+      ? Array.from({ length: p.maxLessons }, (_, i) => `<span class="ldot ${i < ls ? 'on' : ''}">${i < ls ? '⭐' : i + 1}</span>`).join('')
+      : Array.from({ length: ls }, () => '<span class="ldot on">⭐</span>').join('') + (can ? `<span class="ldot">${ls + 1}</span>` : '');
 
     render(`
       <section class="screen dash">
@@ -211,10 +229,11 @@
         <div class="dash-grid">
           <div class="dash-main">
             <div class="card today">
-              ${ring(pct, d.cleared ? '<span class="done">クリア!</span>' : `<b>${Math.floor(d.sec / 60)}</b><small>/ ${p.studyMin}ぷん</small>`, d.cleared ? 'cleared' : '')}
+              ${ring(pct, !can ? '<span class="done">クリア!</span>' : `<b>${Math.floor(lsec / 60)}</b><small>/ ${p.studyMin}ぷん</small>`, !can ? 'cleared' : '')}
               <div class="today-txt">
-                <h2>${d.cleared ? 'きょうの べんきょう クリア！🎉' : 'きょうの べんきょう'}</h2>
-                <p>${d.cleared ? 'よく がんばったね！' : `あと <b>${Math.ceil((target - d.sec) / 60)}ぷん</b> で ゲーム ${p.gameMin}ぷん ゲット！`}</p>
+                <h2>${ls ? `レッスン ${ls}かい クリア！🎉` : 'きょうの レッスン'}</h2>
+                <div class="ldots" aria-label="きょうの レッスン">${lessonDots}</div>
+                <p>${can ? `あと <b>${Math.ceil((target - lsec) / 60)}ぷん</b> で ゲーム <b>+${p.gameMin}ぷん</b>！` : 'きょうの レッスンは ここまで。よく がんばったね！'}</p>
                 <p class="mix">えいご ${Math.round(p.enRatio * 100)}% ・ さんすう ${100 - Math.round(p.enRatio * 100)}%</p>
                 ${studyBtn}
               </div>
@@ -226,7 +245,7 @@
                 <h2>ゲームタイム</h2>
                 ${d.cleared
                   ? `<p>のこり <b class="gl">${fmt(gLeft)}</b>${running ? ' <span class="pill run">つかってる</span>' : ''}</p>`
-                  : `<p>べんきょうを クリアすると <b>${p.gameMin}ぷん</b> もらえるよ</p>`}
+                  : `<p>レッスン 1かい（${p.studyMin}ぷん）で <b>${p.gameMin}ぷん</b> もらえるよ</p>`}
               </div>
               ${d.cleared ? `<button class="btn primary go-game" ${gLeft <= 0 ? 'disabled' : ''}>${gLeft <= 0 ? 'おしまい' : 'ひらく'}</button>` : ''}
             </div>
@@ -271,17 +290,19 @@
       const target = p.studyMin * 60;
       let cells = '';
       for (let i = 0; i < first; i++) cells += '<span class="cal-cell empty"></span>';
-      let cnt = 0, mins = 0;
+      let cnt = 0, mins = 0, lessons = 0;
       for (let d = 1; d <= days; d++) {
         const k = `${y}-${pad(m + 1)}-${pad(d)}`;
         const rec = p.days[k];
         const future = k > todayKey;
         const wd = (first + d - 1) % 7;
         if (rec && rec.cleared) cnt++;
+        lessons += lessonsOf(rec);
         if (rec) mins += Math.floor(rec.sec / 60);
         let inner = '';
-        if (rec && rec.cleared) inner = `<span class="stamp">${rec.stamp || '🌟'}</span>`;
-        else if (rec && rec.sec > 0) inner = `<span class="mini"><span style="width:${Math.min(100, (rec.sec / target) * 100)}%"></span></span>`;
+        const nl = lessonsOf(rec);
+        if (rec && rec.cleared) inner = `<span class="stamp">${rec.stamp || '🌟'}</span>${nl > 1 ? `<b class="lx">×${nl}</b>` : ''}`;
+        else if (rec && rec.sec > 0) inner = `<span class="mini"><span style="width:${Math.min(100, (lessonSecOf(rec) / target) * 100)}%"></span></span>`;
         const meta = rec && rec.sec > 0 ? `<em>${Math.floor(rec.sec / 60)}${parent ? '分' : 'ぷん'}</em>` : '';
         cells += `<button class="cal-cell ${k === todayKey ? 'today' : ''} ${rec && rec.cleared ? 'ok' : ''} ${future ? 'future' : ''} w${wd}" data-k="${k}" ${future ? 'disabled' : ''}>
           <i>${d}</i>${inner}${meta}</button>`;
@@ -294,7 +315,7 @@
           <h2>${y !== now.getFullYear() ? y + (parent ? '年' : 'ねん ') : ''}${m + 1}${parent ? '月の記録' : 'がつの カレンダー'}</h2>
           <button class="icon-btn cal-next" ${canNext ? '' : 'disabled'} aria-label="つぎの月">›</button>
         </div>
-        <p class="cal-sum">${parent ? `クリア ${cnt}日・合計 ${mins}分` : `スタンプ <b>${cnt}</b>こ ・ べんきょう <b>${mins}</b>ぷん`}</p>
+        <p class="cal-sum">${parent ? `クリア ${cnt}日・レッスン ${lessons}回・合計 ${mins}分` : `スタンプ <b>${cnt}</b>こ ・ レッスン <b>${lessons}</b>かい ・ <b>${mins}</b>ぷん`}</p>
         <div class="cal-grid">${(parent ? WEEK_P : WEEK).map((w, i) => `<span class="cal-h w${i}">${w}</span>`).join('')}${cells}</div>
         <div class="cal-legend"><span><span class="stamp-s">🌟</span>${parent ? 'クリア' : 'クリア'}</span><span><span class="mini"><span style="width:50%"></span></span>${parent ? '途中' : 'とちゅう'}</span></div>`;
       el.querySelector('.cal-prev').onclick = () => { if (canPrev) { ym = new Date(y, m - 1, 1); SFX.tap(); draw(); } };
@@ -311,8 +332,8 @@
     const acc = rec.q ? Math.round((rec.c / rec.q) * 100) : 0;
     const gameUsed = rec.cleared ? Math.max(0, Math.round(((rec.gameTotal || p.gameMin * 60) - Math.max(0, gameRemaining(rec))) / 60)) : 0;
     const L = parent
-      ? { study: '学習時間', q: '問題', acc: '正解率', star: 'スター', game: 'ゲーム使用', none: 'この日は学習していません', close: '閉じる', unit: '分', qu: '問' }
-      : { study: 'べんきょう', q: 'もんだい', acc: 'せいかい', star: 'スター', game: 'ゲーム', none: 'この日は おやすみ', close: 'とじる', unit: 'ぷん', qu: 'もん' };
+      ? { lesson: 'レッスン', lu: '回', study: '学習時間', q: '問題', acc: '正解率', star: 'スター', game: 'ゲーム使用', none: 'この日は学習していません', close: '閉じる', unit: '分', qu: '問' }
+      : { lesson: 'レッスン', lu: 'かい', study: 'べんきょう', q: 'もんだい', acc: 'せいかい', star: 'スター', game: 'ゲーム', none: 'この日は おやすみ', close: 'とじる', unit: 'ぷん', qu: 'もん' };
     const ov = document.createElement('div');
     ov.className = 'overlay day-ov';
     ov.innerHTML = `<div class="ov-card day-card" role="dialog" aria-label="${m}/${d}">
@@ -320,6 +341,7 @@
       <h2>${m}${parent ? '月' : 'がつ'}${d}${parent ? '日' : 'にち'}（${(parent ? WEEK_P : WEEK)[wd]}）</h2>
       ${rec.sec > 0 || rec.cleared ? `<p class="day-status ${rec.cleared ? 'ok' : ''}">${rec.cleared ? (parent ? '✅ クリア' : '✅ クリア！') : (parent ? '未クリア' : 'とちゅう')}</p>
       <div class="day-stats">
+        <div><b>${lessonsOf(rec)}<u>${L.lu}</u></b><small>${L.lesson}</small></div>
         <div><b>${Math.floor(rec.sec / 60)}<u>${L.unit}</u></b><small>${L.study}</small></div>
         <div><b>${rec.q}<u>${L.qu}</u></b><small>${L.q}</small></div>
         <div><b>${acc}<u>%</u></b><small>${L.acc}</small></div>
@@ -351,13 +373,14 @@
     const p = cur(); if (!p) return showHome();
     const d = today(p);
     const target = p.studyMin * 60;
-    const wasCleared = d.cleared;
+    const rewardable = canLesson(p, d);
+    if (d.lessonSec == null) d.lessonSec = lessonSecOf(d);
     let lastAct = Date.now();
     let paused = false;
     let q = null, answered = false, input = '';
-    let combo = 0, sessionStars = 0, sinceIdx = 0;
+    let combo = 0, sessionStars = 0, sinceIdx = 0, sessionSec = 0;
     const retry = []; // { q, at }
-    let timeUp = !wasCleared && d.sec >= target;
+    let timeUp = rewardable && d.lessonSec >= target;
 
     keepAwake(true);
     render(`
@@ -381,12 +404,12 @@
     const tfill = $('.tfill'), tlabel = $('.tlabel'), qwrap = $('.qwrap');
 
     function updateBar() {
-      if (wasCleared) {
+      if (!rewardable) {
         tfill.style.width = '100%';
-        tlabel.textContent = `ボーナス ${fmt(d.sec - target > 0 ? d.sec - target : 0)}`;
+        tlabel.textContent = `ボーナス れんしゅう ${fmt(sessionSec)}`;
       } else {
-        tfill.style.width = Math.min(100, (d.sec / target) * 100) + '%';
-        tlabel.textContent = timeUp ? 'この もんだいで おわり！' : `のこり ${fmt(target - d.sec)}`;
+        tfill.style.width = Math.min(100, (d.lessonSec / target) * 100) + '%';
+        tlabel.textContent = timeUp ? 'この もんだいで クリア！' : `レッスン${lessonsOf(d) + 1} のこり ${fmt(target - d.lessonSec)}`;
       }
       $('.sstars b').textContent = sessionStars;
     }
@@ -398,8 +421,8 @@
     every(1000, () => {
       if (paused || document.hidden) return;
       if (Date.now() - lastAct > IDLE_LIMIT * 1000) { pause(); return; }
-      d.sec += 1;
-      if (!wasCleared && d.sec >= target) timeUp = true;
+      d.sec += 1; sessionSec += 1;
+      if (rewardable) { d.lessonSec += 1; if (d.lessonSec >= target) timeUp = true; }
       if (d.sec % 10 === 0) save();
       updateBar();
     });
@@ -513,18 +536,14 @@
     }
 
     function afterAnswer() {
-      if (!wasCleared && d.sec >= target) return finish();
+      if (rewardable && d.lessonSec >= target) return finish();
       nextQ();
     }
 
     function finish() {
-      d.cleared = true;
-      d.gameLeft = p.gameMin * 60;
-      d.gameTotal = d.gameLeft;
-      d.gameRunAt = null;
-      d.stamp = STAMPS[Math.floor(Math.random() * STAMPS.length)];
+      grantLesson(p, d);
       save();
-      if (window.trackConversion) window.trackConversion('app_action_complete', { action: 'study_clear', grade: GRADES[p.grade], minutes: p.studyMin });
+      if (window.trackConversion) window.trackConversion('app_action_complete', { action: 'study_clear', grade: GRADES[p.grade], minutes: p.studyMin, lesson: d.lessons });
       showClear(p, d);
     }
 
@@ -561,21 +580,26 @@
     keepAwake(false);
     SFX.fanfare();
     const st = streak(p);
-    const newBadge = STREAK_BADGES.includes(st);
-    speak([{ text: `クリア おめでとう！ ゲームの じかんを ${p.gameMin}ぷん ゲットしたよ`, lang: 'ja' }]);
+    const n = lessonsOf(d);
+    const newBadge = n === 1 && STREAK_BADGES.includes(st);
+    const more = canLesson(p, d);
+    speak([{ text: `レッスン ${n}かい クリア！ ゲームの じかんを ${p.gameMin}ぷん ゲットしたよ`, lang: 'ja' }]);
     const conf = Array.from({ length: 40 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${(Math.random() * 1.5).toFixed(2)}s;background:hsl(${(i * 37) % 360} 90% 60%)"></i>`).join('');
     render(`
       <section class="screen clear">
         <div class="confetti">${conf}</div>
         <div class="stamp-big">${d.stamp}</div>
-        <h1>クリア！おめでとう！</h1>
-        <p class="big-msg">🎮 ゲーム <b>${p.gameMin}ぷん</b> ゲット！</p>
+        <h1>レッスン ${n}かい クリア！</h1>
+        <p class="big-msg">🎮 ゲーム <b>+${p.gameMin}ぷん</b> ゲット！</p>
+        <p>ゲームタイム のこり <b>${fmt(gameRemaining(d))}</b></p>
         <p>きょう とけた もんだい：<b>${d.c}</b> / ${d.q} もん</p>
         <p>🔥 <b>${st}にち</b> れんぞく！${newBadge ? ' 🏅 メダル ゲット！' : ''}</p>
         <button class="btn big primary go-game">🎮 ゲームタイムへ</button>
+        ${more ? `<button class="btn big ghost go-next">📚 もう1かい レッスン</button>` : ''}
         <button class="btn ghost go-dash">ホームに もどる</button>
       </section>`, 'clear');
     on('.go-game', 'click', () => showGame());
+    on('.go-next', 'click', () => showStudy());
     on('.go-dash', 'click', () => showDash());
   }
 
@@ -599,13 +623,13 @@
 
     function draw() {
       const left = gameRemaining(d);
-      const total = p.gameMin * 60;
+      const total = Math.max(d.gameTotal || 0, p.gameMin * 60, left);
       $('.gring').innerHTML = ring(Math.max(0, left) / total, `<b class="gtime">${fmt(left)}</b><small>のこり</small>`, 'game-ring');
       const run = !!d.gameRunAt;
       const t = $('.toggle');
       if (left <= 0) {
         t.textContent = 'おしまい'; t.disabled = true;
-        $('.gmsg').innerHTML = '⏰ ゲームの じかんは おしまい！<br>また あした がんばろう！';
+        $('.gmsg').innerHTML = canLesson(p, d) ? `⏰ ゲームの じかんは おしまい！<br>レッスンを すると また ${p.gameMin}ぷん もらえるよ` : '⏰ ゲームの じかんは おしまい！<br>また あした がんばろう！';
       } else {
         t.textContent = run ? '⏸ ストップ' : '▶ スタート';
         t.classList.toggle('danger', run);
@@ -672,7 +696,7 @@
       const d = p.days[dkey()] || { sec: 0, q: 0, c: 0 };
       return `<div class="prow">
         <div class="pinfo"><span class="av">${p.avatar}</span><div><b>${esc(p.name)}</b> <small>${GRADES[p.grade]}</small><br>
-          <small>きょう ${Math.floor(d.sec / 60)}分 / ${p.studyMin}分・${d.q}問 正解${d.q ? Math.round((d.c / d.q) * 100) : 0}%・${d.cleared ? '✅クリア' : '未クリア'}・🔥${streak(p)}日</small></div></div>
+          <small>きょう ${Math.floor(d.sec / 60)}分 / ${p.studyMin}分・${d.q}問 正解${d.q ? Math.round((d.c / d.q) * 100) : 0}%・レッスン${lessonsOf(d)}回・🔥${streak(p)}日</small></div></div>
         <div class="pbtns">
           <button class="btn sm edit" data-id="${p.id}">せってい</button>
           <button class="btn sm ghost report" data-id="${p.id}">きろく</button>
@@ -715,7 +739,7 @@
           <ol>
             <li>毎日「べんきょう スタート」。英語（約7割）と算数（約3割）の問題が学年に合わせて出ます。</li>
             <li>タイマーは <b>問題に取り組んでいる間だけ</b> 進みます（${IDLE_LIMIT}秒操作がないと自動で止まります）。途中でやめても続きから再開できます。</li>
-            <li>設定した時間（標準30分）に達するとクリア。<b>ゲームタイム（標準30分）</b> が使えるようになります。</li>
+            <li><b>レッスン1回（標準30分）をクリアするごとに、ゲームタイム30分</b>がもらえます。2回やれば60分、3回で90分と貯まります（1日の上限回数はお子さまごとの設定で変更できます）。</li>
             <li>ゲームタイムは「スタート／ストップ」で使った分だけ減ります。残り5分・1分でお知らせ、0分でアラームが鳴ります。その日のうちに使い切りです。</li>
             <li>正解率に合わせて「かんたん」「ふつう」の難しさが自動で切り替わります。まちがえた問題は少しあとにもう一度出ます。</li>
             <li>ホーム画面に追加すると、アプリのように全画面で使えます（iPhone/iPad：共有ボタン →「ホーム画面に追加」）。</li>
@@ -762,7 +786,7 @@
 
   function showProfileForm(id, first) {
     const p = id ? S.profiles.find((x) => x.id === id) : null;
-    const v = p || { name: '', grade: 3, avatar: AVATARS[S.profiles.length % AVATARS.length], studyMin: 30, gameMin: 30, enRatio: 0.7 };
+    const v = p || { name: '', grade: 3, avatar: AVATARS[S.profiles.length % AVATARS.length], studyMin: 30, gameMin: 30, enRatio: 0.7, maxLessons: 0 };
     const opts = (arr, sel) => arr.map(([val, label]) => `<option value="${val}" ${String(val) === String(sel) ? 'selected' : ''}>${label}</option>`).join('');
     const mins = [10, 15, 20, 25, 30, 35, 40, 45, 50, 60].map((m) => [m, m + '分']);
     const d = p ? p.days[dkey()] : null;
@@ -781,9 +805,12 @@
             <div class="avatars">${AVATARS.map((a) => `<label class="avatar"><input type="radio" name="avatar" value="${a}" ${a === v.avatar ? 'checked' : ''}><span>${a}</span></label>`).join('')}</div>
           </fieldset>
           <div class="two">
-            <label>1日のべんきょう時間<select name="studyMin">${opts(mins, v.studyMin)}</select></label>
-            <label>もらえるゲーム時間<select name="gameMin">${opts(mins, v.gameMin)}</select></label>
+            <label>1回のレッスン時間<select name="studyMin">${opts(mins, v.studyMin)}</select></label>
+            <label>1回でもらえるゲーム時間<select name="gameMin">${opts(mins, v.gameMin)}</select></label>
           </div>
+          <label>1日のレッスン回数の上限
+            <select name="maxLessons">${opts([[0, '上限なし'], [1, '1回まで'], [2, '2回まで'], [3, '3回まで'], [4, '4回まで']], v.maxLessons || 0)}</select>
+          </label>
           <label>英語と算数の割合
             <select name="enRatio">${opts(ENRATIOS.map((r) => [r, `英語 ${Math.round(r * 100)}% ／ 算数 ${100 - Math.round(r * 100)}%`]), v.enRatio)}</select>
           </label>
@@ -792,8 +819,8 @@
         </form>
         ${p ? `<div class="card">
           <h3>きょうの調整</h3>
-          <p class="hint">きょう：${Math.floor((d ? d.sec : 0) / 60)}分・${d && d.cleared ? 'クリア済み' : '未クリア'}${d && d.cleared ? `・ゲーム残り ${fmt(gameRemaining(d))}` : ''}</p>
-          <button class="btn sm grant">きょうをクリア扱いにする</button>
+          <p class="hint">きょう：${Math.floor((d ? d.sec : 0) / 60)}分・レッスン${lessonsOf(d)}回${d && d.cleared ? `・ゲーム残り ${fmt(gameRemaining(d))}` : ''}</p>
+          <button class="btn sm grant">レッスン1回分をクリア扱い（+ゲーム${p ? p.gameMin : 30}分）</button>
           <button class="btn sm add10">ゲーム時間 +10分</button>
           <button class="btn sm ghost reset-today">きょうの記録をリセット</button>
           <hr>
@@ -814,6 +841,7 @@
       t.studyMin = +f.get('studyMin');
       t.gameMin = +f.get('gameMin');
       t.enRatio = +f.get('enRatio');
+      t.maxLessons = +f.get('maxLessons');
       if (!p) { S.profiles.push(t); S.current = t.id; }
       save();
       if (first) showDash(); else showParent();
@@ -821,15 +849,14 @@
     if (p) {
       const t = today(p);
       on('.grant', 'click', () => {
-        if (t.cleared) return alert('すでにクリア済みです');
-        t.cleared = true; t.gameLeft = t.gameTotal = p.gameMin * 60; t.gameRunAt = null; t.stamp = STAMPS[0]; save(); showProfileForm(id);
+        grantLesson(p, t); save(); showProfileForm(id);
       });
       on('.add10', 'click', () => {
-        if (!t.cleared) { t.cleared = true; t.stamp = STAMPS[0]; t.gameLeft = 0; t.gameTotal = 0; }
-        if (t.gameRunAt) { t.gameLeft = gameRemaining(t); t.gameRunAt = Date.now(); }
-        t.gameLeft = Math.max(0, t.gameLeft) + 600; t.gameTotal = (t.gameTotal || p.gameMin * 60) + 600; save(); showProfileForm(id);
+        if (!t.cleared) { t.cleared = true; t.stamp = t.stamp || STAMPS[0]; t.gameLeft = 0; t.gameTotal = 0; }
+        if (t.gameRunAt) { t.gameLeft = Math.max(0, gameRemaining(t)); t.gameRunAt = Date.now(); }
+        t.gameLeft = Math.max(0, t.gameLeft) + 600; t.gameTotal = (t.gameTotal || 0) + 600; save(); showProfileForm(id);
       });
-      on('.reset-today', 'click', () => { if (confirm('きょうの記録（時間・クリア・ゲーム時間）をリセットしますか？')) { delete p.days[dkey()]; save(); showProfileForm(id); } });
+      on('.reset-today', 'click', () => { if (confirm('きょうの記録（時間・レッスン回数・ゲーム時間）をリセットしますか？')) { delete p.days[dkey()]; save(); showProfileForm(id); } });
       on('.del', 'click', () => {
         if (confirm(`${p.name} さんの記録をすべて削除しますか？`)) {
           S.profiles = S.profiles.filter((x) => x.id !== id);
@@ -847,7 +874,7 @@
     const maxMin = Math.max(p.studyMin, ...days.map(([, d]) => d.sec / 60));
     const bars = days.map(([k, d]) => {
       const h = Math.round(((d.sec / 60) / maxMin) * 100);
-      return `<div class="bar ${d.cleared ? 'ok' : ''}" title="${k}：${Math.floor(d.sec / 60)}分 ${d.q}問">
+      return `<div class="bar ${d.cleared ? 'ok' : ''}" title="${k}：${Math.floor(d.sec / 60)}分・レッスン${lessonsOf(d)}回・${d.q}問">
         <span style="height:${h}%"></span><small>${+k.slice(8)}</small></div>`;
     }).join('');
     const kinds = Object.entries(p.kinds).filter(([, v]) => v.q >= 3).map(([k, v]) => [k, v.q, v.c / v.q]).sort((a, b) => a[2] - b[2]);
@@ -857,7 +884,7 @@
         <header class="topbar"><button class="icon-btn back" aria-label="もどる">←</button><h2>${p.avatar} ${esc(p.name)} の記録</h2><span></span></header>
         <div class="card">
           <h3>これまで</h3>
-          <p>クリア ${clearedCount(p)}日・いまの連続 ${streak(p)}日・最長 ${bestStreak(p)}日<br>
+          <p>クリア ${clearedCount(p)}日・レッスン ${Object.values(p.days).reduce((n, d) => n + lessonsOf(d), 0)}回・いまの連続 ${streak(p)}日・最長 ${bestStreak(p)}日<br>
           学習 ${Math.floor(total.sec / 3600)}時間${Math.floor((total.sec % 3600) / 60)}分・${total.q}問・正解率 ${total.q ? Math.round((total.c / total.q) * 100) : 0}%・⭐${p.stars}</p>
         </div>
         <div class="card cal parent-cal" data-cal></div>

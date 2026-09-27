@@ -88,6 +88,11 @@ small { font-size: .75em; color: var(--sub); }
 .today { display: flex; gap: 18px; align-items: center; }
 .today-txt { flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .today-txt p { margin: 0; }
+.ldots { display: flex; flex-wrap: wrap; gap: 6px; justify-content: inherit; }
+.ldot { min-width: 34px; height: 34px; border-radius: 50%; display: inline-grid; place-items: center; background: #f6efe4; color: var(--sub); font-weight: 800; font-size: .9rem; box-shadow: inset 0 0 0 2px var(--line); }
+.ldot.on { background: #fff1d6; box-shadow: inset 0 0 0 2px var(--gold); font-size: 1.1rem; }
+.cal-cell .lx { position: absolute; top: 3px; right: 5px; font-size: .62rem; background: var(--pri); color: #fff; border-radius: 99px; padding: 0 5px; line-height: 1.5; }
+.clear .btn.big { max-width: 480px; }
 .today .mix { font-size: .8rem; color: var(--sub); }
 .today .btn { margin-top: 6px; }
 
@@ -361,6 +366,8 @@ hr { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }
   .cal-cell i { font-size: .85rem; top: 5px; left: 9px; }
   .cal-cell em { font-size: .72rem; bottom: 4px; }
   .cal-cell .stamp { font-size: 2.2rem; }
+  .cal-cell .lx { font-size: .75rem; top: 5px; right: 7px; }
+  .dash-main .today .ldots { justify-content: center; }
   .cal-h { font-size: .9rem; }
   .badge-row { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); }
   .badge { width: auto; }
@@ -430,6 +437,7 @@ hr { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }
   .dash-grid { display: grid; grid-template-columns: minmax(360px, 1fr) 1.5fr; gap: 24px; align-items: start; }
   .dash-main { display: flex; }
   .dash-main .today { flex-direction: row; text-align: left; }
+  .dash-main .today .ldots { justify-content: flex-start; }
   .today .ring { width: 150px; height: 150px; }
   .dash-cal { position: sticky; top: 16px; }
   .cal-cell { aspect-ratio: 1 / .82; }
