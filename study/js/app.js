@@ -208,35 +208,40 @@
           <button class="icon-btn parent-link" aria-label="おうちの人の せってい">⚙</button>
         </header>
 
-        <div class="card today">
-          ${ring(pct, d.cleared ? '<span class="done">クリア!</span>' : `<b>${Math.floor(d.sec / 60)}</b><small>/ ${p.studyMin}ぷん</small>`, d.cleared ? 'cleared' : '')}
-          <div class="today-txt">
-            <h2>${d.cleared ? 'きょうの べんきょう クリア！🎉' : 'きょうの べんきょう'}</h2>
-            <p>${d.cleared ? 'よく がんばったね！' : `あと <b>${Math.ceil((target - d.sec) / 60)}ぷん</b> で ゲーム ${p.gameMin}ぷん ゲット！`}</p>
-            <p class="mix">えいご ${Math.round(p.enRatio * 100)}% ・ さんすう ${100 - Math.round(p.enRatio * 100)}%</p>
-            ${studyBtn}
+        <div class="dash-grid">
+          <div class="dash-main">
+            <div class="card today">
+              ${ring(pct, d.cleared ? '<span class="done">クリア!</span>' : `<b>${Math.floor(d.sec / 60)}</b><small>/ ${p.studyMin}ぷん</small>`, d.cleared ? 'cleared' : '')}
+              <div class="today-txt">
+                <h2>${d.cleared ? 'きょうの べんきょう クリア！🎉' : 'きょうの べんきょう'}</h2>
+                <p>${d.cleared ? 'よく がんばったね！' : `あと <b>${Math.ceil((target - d.sec) / 60)}ぷん</b> で ゲーム ${p.gameMin}ぷん ゲット！`}</p>
+                <p class="mix">えいご ${Math.round(p.enRatio * 100)}% ・ さんすう ${100 - Math.round(p.enRatio * 100)}%</p>
+                ${studyBtn}
+              </div>
+            </div>
+
+            <div class="card game ${d.cleared ? '' : 'locked'}">
+              <div class="game-ico">${d.cleared ? '🎮' : '🔒'}</div>
+              <div class="game-txt">
+                <h2>ゲームタイム</h2>
+                ${d.cleared
+                  ? `<p>のこり <b class="gl">${fmt(gLeft)}</b>${running ? ' <span class="pill run">つかってる</span>' : ''}</p>`
+                  : `<p>べんきょうを クリアすると <b>${p.gameMin}ぷん</b> もらえるよ</p>`}
+              </div>
+              ${d.cleared ? `<button class="btn primary go-game" ${gLeft <= 0 ? 'disabled' : ''}>${gLeft <= 0 ? 'おしまい' : 'ひらく'}</button>` : ''}
+            </div>
+
+            <div class="stats">
+              <div class="stat"><span class="n">🔥 ${st}</span><span class="l">にち れんぞく</span></div>
+              <div class="stat"><span class="n">⭐ ${p.stars}</span><span class="l">スター</span></div>
+              <div class="stat"><span class="n">${rk[1]}</span><span class="l">${rk[2]}${nx ? `<br><small>つぎまで ⭐${nx[0] - p.stars}</small>` : ''}</span></div>
+            </div>
+          </div>
+          <div class="dash-cal">
+            <div class="card cal" data-cal></div>
+            ${badgesHTML(p)}
           </div>
         </div>
-
-        <div class="card game ${d.cleared ? '' : 'locked'}">
-          <div class="game-ico">${d.cleared ? '🎮' : '🔒'}</div>
-          <div class="game-txt">
-            <h2>ゲームタイム</h2>
-            ${d.cleared
-              ? `<p>のこり <b class="gl">${fmt(gLeft)}</b>${running ? ' <span class="pill run">つかってる</span>' : ''}</p>`
-              : `<p>べんきょうを クリアすると <b>${p.gameMin}ぷん</b> もらえるよ</p>`}
-          </div>
-          ${d.cleared ? `<button class="btn primary go-game" ${gLeft <= 0 ? 'disabled' : ''}>${gLeft <= 0 ? 'おしまい' : 'ひらく'}</button>` : ''}
-        </div>
-
-        <div class="stats">
-          <div class="stat"><span class="n">🔥 ${st}</span><span class="l">にち れんぞく</span></div>
-          <div class="stat"><span class="n">⭐ ${p.stars}</span><span class="l">スター</span></div>
-          <div class="stat"><span class="n">${rk[1]}</span><span class="l">${rk[2]}${nx ? `<br><small>つぎまで ⭐${nx[0] - p.stars}</small>` : ''}</span></div>
-        </div>
-
-        ${calendarHTML(p)}
-        ${badgesHTML(p)}
       </section>`, 'dash');
 
     on('.go-study', 'click', () => { SFX.tap(); showStudy(); });
@@ -244,27 +249,90 @@
     on('.switch', 'click', () => { if (S.profiles.length > 1) { S.current = null; save(); showHome(); } });
     on('.parent-link', 'click', () => pinGate(showParent));
     if (running) every(1000, () => { const el = $('.gl'); if (el) el.textContent = fmt(gameRemaining(today(p))); });
+    mountCalendar($('[data-cal]'), p, false);
   }
 
-  function calendarHTML(p) {
+  // ---------- カレンダー ----------
+  const WEEK = ['にち', 'げつ', 'か', 'すい', 'もく', 'きん', 'ど'];
+  const WEEK_P = ['日', '月', '火', '水', '木', '金', '土'];
+  // parent=true のときは 保護者向け（漢字・くわしい 数字）
+  function mountCalendar(el, p, parent) {
     const now = new Date();
-    const y = now.getFullYear(), m = now.getMonth();
-    const first = new Date(y, m, 1).getDay();
-    const days = new Date(y, m + 1, 0).getDate();
-    let cells = '';
-    for (let i = 0; i < first; i++) cells += '<span class="cal-cell empty"></span>';
-    for (let d = 1; d <= days; d++) {
-      const k = `${y}-${pad(m + 1)}-${pad(d)}`;
-      const rec = p.days[k];
-      const isToday = d === now.getDate();
-      const content = rec && rec.cleared ? `<span class="stamp">${rec.stamp || '🌟'}</span>` : rec && rec.sec > 0 ? '<span class="half">・</span>' : '';
-      cells += `<span class="cal-cell ${isToday ? 'today' : ''} ${rec && rec.cleared ? 'ok' : ''}"><i>${d}</i>${content}</span>`;
+    let ym = new Date(now.getFullYear(), now.getMonth(), 1);
+    const keys = Object.keys(p.days).sort();
+    const oldest = keys.length ? new Date(keys[0] + 'T00:00:00') : now;
+    const minYm = new Date(oldest.getFullYear(), oldest.getMonth(), 1);
+
+    function draw() {
+      const y = ym.getFullYear(), m = ym.getMonth();
+      const first = new Date(y, m, 1).getDay();
+      const days = new Date(y, m + 1, 0).getDate();
+      const todayKey = dkey();
+      const target = p.studyMin * 60;
+      let cells = '';
+      for (let i = 0; i < first; i++) cells += '<span class="cal-cell empty"></span>';
+      let cnt = 0, mins = 0;
+      for (let d = 1; d <= days; d++) {
+        const k = `${y}-${pad(m + 1)}-${pad(d)}`;
+        const rec = p.days[k];
+        const future = k > todayKey;
+        const wd = (first + d - 1) % 7;
+        if (rec && rec.cleared) cnt++;
+        if (rec) mins += Math.floor(rec.sec / 60);
+        let inner = '';
+        if (rec && rec.cleared) inner = `<span class="stamp">${rec.stamp || '🌟'}</span>`;
+        else if (rec && rec.sec > 0) inner = `<span class="mini"><span style="width:${Math.min(100, (rec.sec / target) * 100)}%"></span></span>`;
+        const meta = rec && rec.sec > 0 ? `<em>${Math.floor(rec.sec / 60)}${parent ? '分' : 'ぷん'}</em>` : '';
+        cells += `<button class="cal-cell ${k === todayKey ? 'today' : ''} ${rec && rec.cleared ? 'ok' : ''} ${future ? 'future' : ''} w${wd}" data-k="${k}" ${future ? 'disabled' : ''}>
+          <i>${d}</i>${inner}${meta}</button>`;
+      }
+      const canPrev = ym > minYm;
+      const canNext = ym < new Date(now.getFullYear(), now.getMonth(), 1);
+      el.innerHTML = `
+        <div class="cal-head">
+          <button class="icon-btn cal-prev" ${canPrev ? '' : 'disabled'} aria-label="まえの月">‹</button>
+          <h2>${y !== now.getFullYear() ? y + (parent ? '年' : 'ねん ') : ''}${m + 1}${parent ? '月の記録' : 'がつの カレンダー'}</h2>
+          <button class="icon-btn cal-next" ${canNext ? '' : 'disabled'} aria-label="つぎの月">›</button>
+        </div>
+        <p class="cal-sum">${parent ? `クリア ${cnt}日・合計 ${mins}分` : `スタンプ <b>${cnt}</b>こ ・ べんきょう <b>${mins}</b>ぷん`}</p>
+        <div class="cal-grid">${(parent ? WEEK_P : WEEK).map((w, i) => `<span class="cal-h w${i}">${w}</span>`).join('')}${cells}</div>
+        <div class="cal-legend"><span><span class="stamp-s">🌟</span>${parent ? 'クリア' : 'クリア'}</span><span><span class="mini"><span style="width:50%"></span></span>${parent ? '途中' : 'とちゅう'}</span></div>`;
+      el.querySelector('.cal-prev').onclick = () => { if (canPrev) { ym = new Date(y, m - 1, 1); SFX.tap(); draw(); } };
+      el.querySelector('.cal-next').onclick = () => { if (canNext) { ym = new Date(y, m + 1, 1); SFX.tap(); draw(); } };
+      el.querySelectorAll('.cal-cell[data-k]').forEach((c) => c.addEventListener('click', () => { SFX.tap(); dayDetail(p, c.dataset.k, parent); }));
     }
-    const cnt = Object.keys(p.days).filter((k) => k.startsWith(`${y}-${pad(m + 1)}`) && p.days[k].cleared).length;
-    return `<div class="card cal">
-      <h2>${m + 1}がつの スタンプ <small>${cnt}こ</small></h2>
-      <div class="cal-grid">${['にち', 'げつ', 'か', 'すい', 'もく', 'きん', 'ど'].map((w) => `<span class="cal-h">${w}</span>`).join('')}${cells}</div>
+    draw();
+  }
+
+  function dayDetail(p, k, parent) {
+    const rec = p.days[k] || { sec: 0, q: 0, c: 0 };
+    const [y, m, d] = k.split('-').map(Number);
+    const wd = new Date(y, m - 1, d).getDay();
+    const acc = rec.q ? Math.round((rec.c / rec.q) * 100) : 0;
+    const gameUsed = rec.cleared ? Math.max(0, Math.round(((rec.gameTotal || p.gameMin * 60) - Math.max(0, gameRemaining(rec))) / 60)) : 0;
+    const L = parent
+      ? { study: '学習時間', q: '問題', acc: '正解率', star: 'スター', game: 'ゲーム使用', none: 'この日は学習していません', close: '閉じる', unit: '分', qu: '問' }
+      : { study: 'べんきょう', q: 'もんだい', acc: 'せいかい', star: 'スター', game: 'ゲーム', none: 'この日は おやすみ', close: 'とじる', unit: 'ぷん', qu: 'もん' };
+    const ov = document.createElement('div');
+    ov.className = 'overlay day-ov';
+    ov.innerHTML = `<div class="ov-card day-card" role="dialog" aria-label="${m}/${d}">
+      <div class="day-stamp">${rec.cleared ? rec.stamp || '🌟' : rec.sec > 0 ? '📝' : '💤'}</div>
+      <h2>${m}${parent ? '月' : 'がつ'}${d}${parent ? '日' : 'にち'}（${(parent ? WEEK_P : WEEK)[wd]}）</h2>
+      ${rec.sec > 0 || rec.cleared ? `<p class="day-status ${rec.cleared ? 'ok' : ''}">${rec.cleared ? (parent ? '✅ クリア' : '✅ クリア！') : (parent ? '未クリア' : 'とちゅう')}</p>
+      <div class="day-stats">
+        <div><b>${Math.floor(rec.sec / 60)}<u>${L.unit}</u></b><small>${L.study}</small></div>
+        <div><b>${rec.q}<u>${L.qu}</u></b><small>${L.q}</small></div>
+        <div><b>${acc}<u>%</u></b><small>${L.acc}</small></div>
+        <div><b>⭐${rec.c}</b><small>${L.star}</small></div>
+        ${rec.cleared ? `<div><b>${gameUsed}<u>${L.unit}</u></b><small>${L.game}</small></div>` : ''}
+      </div>` : `<p>${L.none}</p>`}
+      <button class="btn big primary close">${L.close}</button>
     </div>`;
+    const close = () => { ov.remove(); };
+    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+    ov.querySelector('.close').addEventListener('click', close);
+    app.appendChild(ov);
+    cleanup.push(close);
   }
 
   function badgesHTML(p) {
@@ -379,7 +447,7 @@
           ${q.visual ? `<div class="visual">${q.visual}</div>` : ''}
           ${!listen && q.say ? `<button class="say-btn" aria-label="よみあげ">🔊</button>` : ''}
         </div>
-        ${choicesHTML}
+        <div class="answers ${q.type === 'input' ? 'is-input' : ''}">${choicesHTML}</div>
         <div class="feedback hidden"></div>`;
       qwrap.querySelectorAll('.choice').forEach((b) => b.addEventListener('click', () => { act(); if (!answered) answer(q.choices[+b.dataset.i].value, b); }));
       qwrap.querySelectorAll('.key').forEach((b) => b.addEventListener('click', () => { act(); press(b.dataset.k); }));
@@ -439,6 +507,7 @@
           <button class="btn primary next">つぎへ ▶</button>`;
         if (q.reveal) setTimeout(() => speak(q.reveal), 300);
         fb.querySelector('.next').addEventListener('click', () => { act(); afterAnswer(); });
+        if (fb.getBoundingClientRect().bottom > window.innerHeight) fb.scrollIntoView({ behavior: 'smooth', block: 'end' });
         save(); updateBar();
       }
     }
@@ -451,6 +520,7 @@
     function finish() {
       d.cleared = true;
       d.gameLeft = p.gameMin * 60;
+      d.gameTotal = d.gameLeft;
       d.gameRunAt = null;
       d.stamp = STAMPS[Math.floor(Math.random() * STAMPS.length)];
       save();
@@ -752,12 +822,12 @@
       const t = today(p);
       on('.grant', 'click', () => {
         if (t.cleared) return alert('すでにクリア済みです');
-        t.cleared = true; t.gameLeft = p.gameMin * 60; t.gameRunAt = null; t.stamp = STAMPS[0]; save(); showProfileForm(id);
+        t.cleared = true; t.gameLeft = t.gameTotal = p.gameMin * 60; t.gameRunAt = null; t.stamp = STAMPS[0]; save(); showProfileForm(id);
       });
       on('.add10', 'click', () => {
-        if (!t.cleared) { t.cleared = true; t.stamp = STAMPS[0]; t.gameLeft = 0; }
+        if (!t.cleared) { t.cleared = true; t.stamp = STAMPS[0]; t.gameLeft = 0; t.gameTotal = 0; }
         if (t.gameRunAt) { t.gameLeft = gameRemaining(t); t.gameRunAt = Date.now(); }
-        t.gameLeft = Math.max(0, t.gameLeft) + 600; save(); showProfileForm(id);
+        t.gameLeft = Math.max(0, t.gameLeft) + 600; t.gameTotal = (t.gameTotal || p.gameMin * 60) + 600; save(); showProfileForm(id);
       });
       on('.reset-today', 'click', () => { if (confirm('きょうの記録（時間・クリア・ゲーム時間）をリセットしますか？')) { delete p.days[dkey()]; save(); showProfileForm(id); } });
       on('.del', 'click', () => {
@@ -790,6 +860,7 @@
           <p>クリア ${clearedCount(p)}日・いまの連続 ${streak(p)}日・最長 ${bestStreak(p)}日<br>
           学習 ${Math.floor(total.sec / 3600)}時間${Math.floor((total.sec % 3600) / 60)}分・${total.q}問・正解率 ${total.q ? Math.round((total.c / total.q) * 100) : 0}%・⭐${p.stars}</p>
         </div>
+        <div class="card cal parent-cal" data-cal></div>
         <div class="card">
           <h3>最近14日の学習時間 <small>（緑＝クリア、線＝目標${p.studyMin}分）</small></h3>
           <div class="bars" style="--goal:${(p.studyMin / maxMin) * 100}%">${bars}</div>
@@ -800,6 +871,7 @@
         </div>
       </section>`, 'report');
     on('.back', 'click', showParent);
+    mountCalendar($('[data-cal]'), p, true);
   }
 
   // ---------- 日付が かわったら ホームを 更新 ----------
